@@ -1,0 +1,9 @@
+marker-pdf
+torch
+torchvision
+torchaudio
+pypdf
+tqdm
+python-dotenv
+huggingface_hub
+hf_transfer
