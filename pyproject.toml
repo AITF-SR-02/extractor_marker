@@ -1,22 +1,18 @@
 [project]
 name = "extractor-marker"
 version = "0.1.0"
-description = "Stable PDF extraction for Sekolah Rakyat AITF"
-readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "torch==2.5.1+cu121",
     "torchvision==0.20.1+cu121",
     "torchaudio==2.5.1+cu121",
-    "marker-pdf==0.3.14",
+    "marker-pdf==0.3.14",  # KUNCI di versi stabil ini
     "surya-ocr==0.14.0",
     "transformers==4.45.2",
     "weasyprint>=62.0",
     "pypdf>=5.0.0",
     "tqdm>=4.67.3",
     "python-dotenv>=1.2.2",
-    "huggingface-hub>=0.28.0",
-    "hf-transfer>=0.1.9",
 ]
 
 [tool.uv]
