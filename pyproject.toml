@@ -1,21 +1,24 @@
 [project]
 name = "extractor-marker"
 version = "0.1.0"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 dependencies = [
     "torch==2.5.1+cu121",
     "torchvision==0.20.1+cu121",
     "torchaudio==2.5.1+cu121",
-    "marker-pdf==0.3.14",  # KUNCI di versi stabil ini
+    "marker-pdf==0.3.10",
     "surya-ocr==0.14.0",
     "transformers==4.45.2",
     "weasyprint>=62.0",
     "pypdf>=5.0.0",
     "tqdm>=4.67.3",
     "python-dotenv>=1.2.2",
+    "huggingface-hub>=0.28.0",
+    "hf-transfer>=0.1.9",
 ]
 
 [tool.uv]
+# Kunci agar uv hanya fokus ke Linux (menghilangkan error darwin/macOS)
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 
 [[tool.uv.index]]
