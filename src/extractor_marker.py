@@ -7,18 +7,31 @@ import logging
 from pathlib import Path
 from tqdm import tqdm
 from dotenv import load_dotenv
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
+# --- MARKER IMPORTS ---
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 
-# --- SETUP ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-load_dotenv()
-BASE_DIR = Path("./data/sr-sibi-process")
-PDF_INPUT = BASE_DIR / "raw_pdf"
-OUTPUT_DIR = BASE_DIR / "extracted_md"
+# --- CONFIGURATION (Safe Mode: 8-13 GB VRAM) ---
+MAX_WORKERS = 2 
+os.environ["INFERENCE_RAM"] = "10" 
+os.environ["TORCH_DEVICE"] = "cuda"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+
+# Gunakan Absolute Path sesuai server lo
+BASE_DIR = Path("/home/jovyan/SR_2/extractor_marker/data") 
+PDF_INPUT = BASE_DIR / "bronze_raw"
+OUTPUT_DIR = BASE_DIR / "silver"
 METADATA_FILE = BASE_DIR / "metadata" / "details_cache.jsonl"
+LOG_FILE = Path("extraction_progress.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+)
 
 def _sanitize(name: str) -> str:
     name = re.sub(r"[^\w\s-]", "", name, flags=re.UNICODE)
@@ -34,11 +47,30 @@ def build_frontmatter(meta: dict, role: str) -> str:
     lines.append("---\n")
     return "\n".join(lines)
 
+def process_pdf_worker(pdf_info):
+    pdf_path, out_path, meta, role = pdf_info
+    
+    if not hasattr(process_pdf_worker, "converter"):
+        process_pdf_worker.converter = PdfConverter(artifact_dict=create_model_dict())
+    
+    try:
+        rendered = process_pdf_worker.converter(str(pdf_path))
+        full_text, _, _ = text_from_rendered(rendered)
+        
+        content = build_frontmatter(meta, role) + full_text
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(content, encoding="utf-8")
+        
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return True, pdf_path.name
+    except Exception as e:
+        return False, f"{pdf_path.name}: {str(e)}"
+
 def run_pdf_extraction():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # Load Metadata
     meta_index = {}
     if METADATA_FILE.exists():
         for line in METADATA_FILE.read_text(encoding="utf-8").splitlines():
@@ -48,32 +80,35 @@ def run_pdf_extraction():
             except: continue
 
     all_pdfs = sorted(PDF_INPUT.rglob("*.pdf"))
-    logging.info(f"🚀 Memulai Marker untuk {len(all_pdfs)} PDF.")
+    pending = []
     
-    converter = PdfConverter(artifact_dict=create_model_dict())
+    for pdf in all_pdfs:
+        out_path = OUTPUT_DIR / pdf.relative_to(PDF_INPUT).with_suffix(".md")
+        if out_path.exists():
+            continue
+
+        meta = meta_index.get(_sanitize(pdf.stem).lower(), {})
+        role = "Siswa" if "siswa" in pdf.name.lower() else "Guru" if "guru" in pdf.name.lower() else ""
+        pending.append((pdf, out_path, meta, role))
+
+    logging.info(f"🚀 Total: {len(all_pdfs)} | Pending: {len(pending)}")
+    
+    if not pending:
+        logging.info("✅ Selesai!")
+        return
 
     try:
-        for pdf_path in tqdm(all_pdfs, desc="PDF Processing"):
-            out_path = OUTPUT_DIR / pdf_path.relative_to(PDF_INPUT).with_suffix(".md")
-            if out_path.exists(): continue
-
-            meta = meta_index.get(_sanitize(pdf_path.stem).lower(), {})
-            role = "Siswa" if "siswa" in pdf_path.name.lower() else "Guru" if "guru" in pdf_path.name.lower() else ""
-
-            try:
-                rendered = converter(str(pdf_path))
-                full_text, _, _ = text_from_rendered(rendered)
-                content = build_frontmatter(meta, role) + full_text
-                
-                out_path.parent.mkdir(parents=True, exist_ok=True)
-                out_path.write_text(content, encoding="utf-8")
-            except Exception as e:
-                logging.error(f"❌ Gagal: {pdf_path.name} | {e}")
-
-            gc.collect()
-            if device == "cuda": torch.cuda.empty_cache()
+        with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = [executor.submit(process_pdf_worker, item) for item in pending]
+            for future in tqdm(as_completed(futures), total=len(pending), desc="Processing"):
+                success, msg = future.result()
+                if not success:
+                    logging.error(f"❌ {msg}")
     except KeyboardInterrupt:
-        logging.info("🛑 Stop paksa (Ctrl+C).")
+        logging.info("\n🛑 Dihentikan.")
 
 if __name__ == "__main__":
+    try:
+        torch.multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError: pass
     run_pdf_extraction()
