@@ -1,16 +1,16 @@
 [project]
 name = "extractor-marker"
 version = "0.1.0"
-description = "High-performance PDF extraction for Sekolah Rakyat AITF"
+description = "Stable PDF extraction for Sekolah Rakyat AITF"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "torch==2.5.1+cu121",
     "torchvision==0.20.1+cu121",
     "torchaudio==2.5.1+cu121",
-    "marker-pdf>=1.0.0",
-    "surya-ocr>=0.17.1",
-    "transformers>=4.56.1",
+    "marker-pdf==0.3.14",
+    "surya-ocr==0.14.0",
+    "transformers==4.45.2",
     "weasyprint>=62.0",
     "pypdf>=5.0.0",
     "tqdm>=4.67.3",
@@ -20,7 +20,6 @@ dependencies = [
 ]
 
 [tool.uv]
-# HANYA selesaikan dependensi untuk Linux x86_64 (Server AITF)
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 
 [[tool.uv.index]]
