@@ -1,16 +1,13 @@
 [project]
 name = "extractor-marker"
 version = "0.1.0"
-description = "High-performance PDF extraction for Sekolah Rakyat"
-readme = "README.md"
-requires-python = ">=3.12"
 dependencies = [
     "torch>=2.4.1",
     "torchvision>=0.19.1",
     "torchaudio>=2.4.1",
     "marker-pdf>=1.10.2",
-    "surya-ocr>=0.7.0",
-    "transformers==4.48.2",
+    "surya-ocr>=0.17.1",
+    "transformers>=4.56.1", # Kita ikutin kemauan Surya
     "weasyprint>=62.0",
     "pypdf>=5.0.0",
     "tqdm>=4.67.3",
@@ -19,7 +16,6 @@ dependencies = [
     "hf-transfer>=0.1.9",
 ]
 
-# Konfigurasi agar UV mengambil versi CUDA 12.1 secara otomatis
 [[tool.uv.index]]
 name = "pytorch-cu121"
 url = "https://download.pytorch.org/whl/cu121"
